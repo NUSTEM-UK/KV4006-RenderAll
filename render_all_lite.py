@@ -67,26 +67,70 @@ def copy_html_files():
         except Exception as e:
             print(f"Error copying {html_file} to {destination}: {e}")
             traceback.print_exc()
-
-
-def copy_img_files():
-    """Copy the entire templates/img/ directory to site/img/."""
-
-    src_dir = "templates/img"
-    dest_dir = "site/img"
+            
+def copy_css_files():
+    """Copy .css files from templates/ to site/ without parsing them."""
 
     # Ensure the output path exists
-    if os.path.exists(dest_dir):
-        shutil.rmtree(dest_dir)
-    shutil.copytree(src_dir, dest_dir)
-    print(f"Copied {src_dir} to {dest_dir}")
+    if not os.path.exists("site"):
+        os.makedirs("site")
+
+    # Walk the templates directory and copy all .css files
+    # Much of what's here is to fudge around path inconsistencies between
+    # Windows and Unix-like systems
+    for css_file in glob.glob("templates/**/*.css", recursive=True):
+        try:
+            destination = os.path.join("site", os.path.relpath(css_file, "templates"))
+            outdir = os.path.dirname(destination)
+            # Ensure the output directory exists (mirror directory structure within templates/)
+            if not os.path.exists(outdir):
+                os.makedirs(outdir)
+            # Remove the destination file if it already exists
+            if os.path.exists(destination):
+                os.remove(destination)
+            # Copy the file
+            shutil.copy(css_file, destination)
+            print(f"Copied {css_file} to {destination}")
+        except Exception as e:
+            print(f"Error copying {css_file} to {destination}: {e}")
+            traceback.print_exc()
+            
+def copy_img_files():
+    """Copy image files used in websites from templates/ to site/ without parsing them."""
+    
+    img_types = ["apng", "png", "avif", "gif", "jpg", "jpeg", "jfif", ".pjpeg", "pjp", "svg", "webp", "bmp", "ico", "cur", "tif", "tiff"]
+
+    # Ensure the output path exists
+    if not os.path.exists("site"):
+        os.makedirs("site")
+
+    # Walk the templates directory and copy all common image files
+    for img_type in img_types:
+        # Much of what's here is to fudge around path inconsistencies between
+        # Windows and Unix-like systems
+        for img_file in glob.glob(f"templates/**/*.{img_type}", recursive=True):
+            try:
+                destination = os.path.join("site", os.path.relpath(img_file, "templates"))
+                outdir = os.path.dirname(destination)
+                # Ensure the output directory exists (mirror directory structure within templates/)
+                if not os.path.exists(outdir):
+                    os.makedirs(outdir)
+                # Remove the destination file if it already exists
+                if os.path.exists(destination):
+                    os.remove(destination)
+                # Copy the file
+                shutil.copy(img_file, destination)
+                print(f"Copied {img_file} to {destination}")
+            except Exception as e:
+                print(f"Error copying {img_file} to {destination}: {e}")
+                traceback.print_exc()
 
 
 def render_all_templates(env, data, trigger_file=None):
     """Render all templates, excluding partials."""
 
     # If a trigger file is provided, note which one caused the rebuild.
-    # We're going to rebuild everything anyway, but this is useful context for the user.
+    # We're going  to rebuild everything anyway, but this is useful context for the user.
     if trigger_file:
         print(f">>> Rebuild triggered by change in: {trigger_file}")
 
@@ -102,9 +146,11 @@ def render_all_templates(env, data, trigger_file=None):
         if f.endswith((".j2", ".jinja")) and "partials" not in f
     ]
 
-    # Make sure we include copying across .html files in our rebuild.
+    # Make sure we include copying across .html and .css and common image files in our rebuild.
     copy_html_files()
-
+    copy_css_files()
+    copy_img_files()
+    
     # Render each template
     # Much of this is fudging around path inconsistencies between Windows and Unix-like systems
     for template_path in template_files:
@@ -149,7 +195,6 @@ def render_all(trigger_file=None):
     env = Environment(loader=FileSystemLoader("templates"))
     data = load_data()
     render_all_templates(env, data, trigger_file)
-    copy_img_files()
 
 
 class ChangeHandler(FileSystemEventHandler):
